@@ -7,7 +7,11 @@ Ce projet implémente un système de modification d'attributs faciaux (ajout de 
 2. Jeu de Données
 Le modèle est entraîné sur le dataset public CelebA (CelebFaces Attributes Dataset). Ce jeu de données comprend plus de 200 000 images de visages, chacune annotée rigoureusement avec 40 attributs binaires, ce qui en fait le standard optimal pour la génération conditionnelle de visages.
 
-3. Méthodologie et Architectures
+https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
+
+équivalent Kaggle : https://www.kaggle.com/datasets/jessicali9530/celeba-dataset
+
+4. Méthodologie et Architectures
 Le projet adopte une démarche comparative en deux étapes pour isoler les forces et faiblesses des différentes approches de modélisation générative :
 
 Modèle de Référence : Auto-encodeur Variationnel Conditionnel (CVAE)
