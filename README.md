@@ -1,6 +1,19 @@
 # 8INF883
 
-#Manipulation d'Attributs Faciaux par Modèles Génératifs (CVAE vs cGAN)
+## Utilisation de l'application 
+
+Pour utiliser l'application d'inférence (à la racine du projet) :
+```bash
+streamlit run app/app.py
+```
+
+## Etude GAN
+
+Il est possible de visualiser les étapes de créations du GAN et l'étude menée sur ce modèle via le notebook python dans ``GAN/GAN.ipynb``.
+
+---
+
+## Manipulation d'Attributs Faciaux par Modèles Génératifs (CVAE vs cGAN)
 1. Objectif du Projet
 Ce projet implémente un système de modification d'attributs faciaux (ajout de lunettes, changement de couleur de cheveux, etc.) basé sur la manipulation de l'espace latent. Le projet vise à comparer des architectures génératives fondamentales pour évaluer leurs capacités respectives en matière de traduction d'images conditionnelle.
 
@@ -31,6 +44,7 @@ LPIPS (Learned Perceptual Image Patch Similarity) : Évalue la qualité visuelle
 
 5. Structure du Dépôt
 
+```text
 ├── data/
 │   └── celeba/
 ├── models/
@@ -43,5 +57,6 @@ LPIPS (Learned Perceptual Image Patch Similarity) : Évalue la qualité visuelle
 ├── evaluate.py
 ├── requirements.txt
 └── README.md
+```
 
 6. Installation et Utilisation
