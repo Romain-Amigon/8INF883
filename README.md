@@ -11,6 +11,10 @@ streamlit run app/app.py
 
 Il est possible de visualiser les étapes de créations du GAN et l'étude menée sur ce modèle via le notebook python dans ``GAN/GAN.ipynb``.
 
+## Rapport
+
+Le rapport du projet est disponible en format pdf au chemin suivant : ``rapport/rapport_projet_8INF883``.
+
 ---
 
 ## Manipulation d'Attributs Faciaux par Modèles Génératifs (CVAE vs cGAN)
