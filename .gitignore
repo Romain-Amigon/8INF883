@@ -2,7 +2,7 @@ celeba/
 
 1702842431689.jpeg
 
-.pth
-.pt
+*.pth
+*.pt
 
 .DS_Store
