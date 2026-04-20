@@ -18,6 +18,7 @@ Le rapport du projet est disponible en format pdf au chemin suivant : ``rapport/
 ---
 
 ## Manipulation d'Attributs Faciaux par Modèles Génératifs (CVAE vs cGAN)
+
 1. Objectif du Projet
 Ce projet implémente un système de modification d'attributs faciaux (ajout de lunettes, changement de couleur de cheveux, etc.) basé sur la manipulation de l'espace latent. Le projet vise à comparer des architectures génératives fondamentales pour évaluer leurs capacités respectives en matière de traduction d'images conditionnelle.
 
@@ -45,22 +46,3 @@ La qualité des images générées et la robustesse des modèles sont évaluées
 SSIM (Structural Similarity Index Measure) : Mesure la préservation de la structure globale du visage original après l'application du filtre.
 
 LPIPS (Learned Perceptual Image Patch Similarity) : Évalue la qualité visuelle et le réalisme des résultats en se basant sur la perception humaine.
-
-5. Structure du Dépôt
-
-```text
-├── data/
-│   └── celeba/
-├── models/
-│   ├── cvae.py
-│   └── cgan.py
-├── utils/
-│   ├── dataset.py
-│   └── metrics.py
-├── train.py
-├── evaluate.py
-├── requirements.txt
-└── README.md
-```
-
-6. Installation et Utilisation

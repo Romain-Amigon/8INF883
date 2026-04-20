@@ -116,7 +116,7 @@ L'objectif de notre projet est de faire de la génération d'image conditionnell
 
 \subsection{Motivations}
 
-Ce projet peut s'inscrire dans une idée d'application, par exemple pour les opticiens coiffeurs ou pour des marchands de la mode.
+Ce projet peut s'inscrire dans une idée d'application, par exemple pour les opticiens, coiffeurs ou pour des marchands de la mode.
 
 En effet, on peut imaginer une application sur téléphone avec laquelle l'utilisateur peut prendre son visage et y ajouter la génération de lunette ou changer sa couleur de cheveux pour voir comment cela rend et se projeter avant de faire un achat.
 
@@ -822,6 +822,175 @@ De plus, en remplaçant le bruit d'entrée du générateur une fois entraîné p
 
 \newpage
 \section{Le modèle CVAE}
+
+Nous avons décidé d'utiliser un CVAE (Conditional Variational Autoencoder). Il s'agit d'une extension du VAE classique intégrant des conditions externes — dans notre cas, les vecteurs d'attributs faciaux (labels) — à la fois à l'entrée de l'encodeur et du décodeur. Cette architecture permet au modèle d'apprendre la corrélation explicite entre l'espace latent et des caractéristiques visuelles spécifiques, offrant ainsi un contrôle sur la génération (par exemple, l'ajout de lunettes).
+
+Cependant, bien que stables à l'entraînement, les CVAE présentent des limites structurelles et mathématiques fondamentales pour la génération d'images haute résolution :
+\begin{itemize}
+    \item Le flou inhérent à la fonction de perte (Blurriness) : L'entraînement d'un VAE repose traditionnellement sur la minimisation de l'erreur de reconstruction pixel par pixel (souvent l'erreur quadratique moyenne, ou norme $L_2$). Face à l'incertitude spatiale (par exemple, le placement exact des contours d'une monture de lunettes ou la texture détaillée des cheveux), le modèle opte mathématiquement pour la moyenne des valeurs possibles pour minimiser son erreur. Ce nivellement se traduit visuellement par des images floues et un manque de netteté dans les hautes fréquences.
+    \item Le compromis de la divergence KL : La fonction de perte inclut une pénalité (la divergence de Kullback-Leibler) qui force l'espace latent à suivre une distribution normale standard $\mathcal{N}(0, 1)$. Si cette contrainte est trop forte, le modèle risque de trop lisser les données et d'ignorer la condition fournie (un phénomène appelé posterior collapse).
+    \item L'enchevêtrement des caractéristiques (Entanglement) : Malgré l'ajout de la condition, le CVAE peine parfois à isoler parfaitement un attribut. Dans un visage, des caractéristiques comme « porter des lunettes », « âge » et « forme des yeux » sont fortement corrélées. Modifier la condition pour ajouter des lunettes entraîne souvent des modifications indésirables sur le reste du visage, car l'espace latent n'est pas parfaitement démêlé.
+\end{itemize}
+C'est pour pallier ces limites, particulièrement le manque de netteté, que nous avons choisi d'utiliser un CVAE à 48 176 771 paramètres et un espace latent de dimension 512, entrainé sur 100 époques, ainsi qu'un peu de Data Augmentation (flip horizontale).
+\medskip
+\begin{lstlisting}[language=Python, caption={Code CVAE}]
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class CVAE(nn.Module):
+    def __init__(self, latent_dim=512, num_classes=40):
+        super(CVAE, self).__init__()
+        self.num_classes = num_classes
+        
+        self.enc_conv1 = nn.Conv2d(3 + num_classes, 64, kernel_size=4, stride=2, padding=1)
+        self.enc_bn1 = nn.BatchNorm2d(64)
+        self.enc_conv2 = nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1)
+        self.enc_bn2 = nn.BatchNorm2d(128)
+        self.enc_conv3 = nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1)
+        self.enc_bn3 = nn.BatchNorm2d(256)
+        self.enc_conv4 = nn.Conv2d(256, 512, kernel_size=4, stride=2, padding=1)
+        self.enc_bn4 = nn.BatchNorm2d(512)
+        self.enc_conv5 = nn.Conv2d( 512,1024, kernel_size=4, stride=2, padding=1)
+        self.enc_bn5 = nn.BatchNorm2d(1024)
+        
+        self.fc_mu = nn.Linear(1024 * 4 * 4, latent_dim)
+        self.fc_logvar = nn.Linear(1024 * 4 * 4, latent_dim)
+        
+        self.dec_fc = nn.Linear(latent_dim + num_classes,1024 * 4 * 4)
+        
+        self.dec_conv0 = nn.ConvTranspose2d(1024,512, kernel_size=4, stride=2, padding=1)
+        self.dec_bn0 = nn.BatchNorm2d(512)  
+        self.dec_conv1 = nn.ConvTranspose2d(512, 256, kernel_size=4, stride=2, padding=1)
+        self.dec_bn1 = nn.BatchNorm2d(256)
+        self.dec_conv2 = nn.ConvTranspose2d(256, 128, kernel_size=4, stride=2, padding=1)
+        self.dec_bn2 = nn.BatchNorm2d(128)
+        self.dec_conv3 = nn.ConvTranspose2d(128, 64, kernel_size=4, stride=2, padding=1)
+        self.dec_bn3 = nn.BatchNorm2d(64)
+        self.dec_conv4 = nn.ConvTranspose2d(64, 3, kernel_size=4, stride=2, padding=1)
+
+    def encode(self, x, c):
+        batch_size, _, h, w = x.size()
+        c_expanded = c.view(batch_size, self.num_classes, 1, 1).expand(-1, -1, h, w)
+        x = torch.cat([x, c_expanded], dim=1)
+        
+        x = F.leaky_relu(self.enc_bn1(self.enc_conv1(x)), 0.2)
+        x = F.leaky_relu(self.enc_bn2(self.enc_conv2(x)), 0.2)
+        x = F.leaky_relu(self.enc_bn3(self.enc_conv3(x)), 0.2)
+        x = F.leaky_relu(self.enc_bn4(self.enc_conv4(x)), 0.2)
+        x = F.leaky_relu(self.enc_bn5(self.enc_conv5(x)), 0.2)
+        x = x.view(x.size(0), -1)
+        
+        mu = self.fc_mu(x)
+        logvar = self.fc_logvar(x)
+        return mu, logvar
+
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mu + eps * std
+
+    def decode(self, z, c):
+        z = torch.cat([z, c], dim=1)
+        z = self.dec_fc(z)
+        z = z.view(z.size(0), 1024,4,4)
+        z = F.relu(self.dec_bn0(self.dec_conv0(z)))
+        z = F.relu(self.dec_bn1(self.dec_conv1(z)))
+        z = F.relu(self.dec_bn2(self.dec_conv2(z)))
+        z = F.relu(self.dec_bn3(self.dec_conv3(z)))
+        z = torch.sigmoid(self.dec_conv4(z))
+        return z
+
+    def forward(self, x, c):
+        mu, logvar = self.encode(x, c)
+        z = self.reparameterize(mu, logvar)
+        x_recon = self.decode(z, c)
+        return x_recon, mu, logvar
+
+loss_fn = nn.MSELoss()
+
+def train(dataloader, model, optimizer, device, beta=1.0):
+    size = len(dataloader.dataset)
+    model.train()
+    for batch, (X, y) in enumerate(dataloader):
+        X = X.to(device)
+        y = y.to(device)
+        
+        optimizer.zero_grad()
+        
+        pred, mu, log_sigma = model(X, y)
+        reconstruction_loss = F.mse_loss(pred, X, reduction='sum')
+        kl = -0.5 * torch.sum(1 + log_sigma - mu.pow(2) - log_sigma.exp())
+        loss = reconstruction_loss + beta * kl
+
+        loss.backward()
+        optimizer.step()
+
+        if batch % 100 == 0:
+            loss_val, current = loss.item(), (batch + 1) * len(X)
+            print(f"loss: {loss_val:>7f}  [{current:>5d}/{size:>5d}]")
+
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{train_cvae.png}
+    \caption{evolution de la loss du cvae}
+\end{figure}
+
+\subsection{Résultats CVAE}
+Pour vérifier les résultats du CVAE on a fait trois tests
+
+\subsubsection{Reconstruction images dataset test}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{Reconstitution_test.png}
+    \caption{Reconstitution test}
+    \label{fig:Reconstitution_test}
+\end{figure}
+
+\subsubsection{ajout features images dataset train}
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{femme_lunette.png}
+        \caption{Ajout lunettes}
+    \end{minipage}\hfill
+    \begin{minipage}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{femme_blackhair.png}
+        \caption{Cheveux noirs}
+    \end{minipage}\hfill
+    \begin{minipage}{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{femme_mustache.png}
+        \caption{Ajout moustache}
+    \end{minipage}
+    \vspace{0.5cm} % Petit espace optionnel
+    \caption{Comparaison des modifications d'attributs sur une même image source.}
+\end{figure}
+
+\subsubsection{Génération aléatoire avec feature}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{gen_cvae_lunettes.png}
+    \caption{Générations aléatoires avec lunettes}
+    \label{fig:génération_lunettes}
+\end{figure}
+Des visages apparraissent au centre, le CVAE a appris la forme des viasges et leurs emplacements. Des lunettes de soleils apparaissent bien, des lunettes de vues apparaissent un peu et aussi des fois des formes sombres au niveau des yeux ou des contours de lunettes apparaissent legerement
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{gen_CVAE_bals.png}
+    \caption{Générations aléatoires chauve}
+    \label{fig:génération_bald}
+\end{figure}
+
+On génére des vecteurs aléatoires pour $\mu$ et $\lambda$, ainsi qu'un vecteur de 0 avec un 1 pour les features que l'on veut
+
 
 \newpage
 \section{Interface pour notre application (Inférence)}
