@@ -46,3 +46,18 @@ La qualité des images générées et la robustesse des modèles sont évaluées
 SSIM (Structural Similarity Index Measure) : Mesure la préservation de la structure globale du visage original après l'application du filtre.
 
 LPIPS (Learned Perceptual Image Patch Similarity) : Évalue la qualité visuelle et le réalisme des résultats en se basant sur la perception humaine.
+
+
+####  Auto-encodeur Variationnel Conditionnel (Deep CVAE)
+Notre modèle de base est un CVAE profond basé sur des réseaux de neurones convolutifs (CNN), conçu pour encoder les images dans une distribution statistique tout en forçant la séparation des attributs.
+
+* **Architecture :** Le réseau est composé de 5 couches de convolution pour l'encodeur et 5 couches de convolution transposée pour le décodeur, totalisant environ 48 millions de paramètres. L'espace latent a été fixé à une dimension de 512 pour maximiser la rétention des détails faciaux en résolution 128x128.
+* **Conditionnement :** Les 40 labels binaires de CelebA sont concaténés à l'image en entrée de l'encodeur, ainsi qu'au vecteur latent échantillonné en entrée du décodeur.
+* **Observations et Limites :** Le modèle démontre une excellente capacité à reconstruire la structure globale du visage et permet l'édition d'attributs spécifiques (ex: ajout de lunettes). Cependant, il illustre parfaitement les limites théoriques des VAE : une tendance au lissage (flou) due à la fonction de perte basée sur l'erreur de reconstruction, et une difficulté à isoler parfaitement certains attributs fortement corrélés (enchevêtrement latent).
+
+####  Exploration : Vision Transformer CVAE (ViT-CVAE)
+Dans une démarche d'exploration de l'état de l'art, nous avons implémenté et testé une variante remplaçant les convolutions par un mécanisme d'Attention.
+
+* **Approche :** L'image est découpée en séquences de patchs de 8x8 pixels (Patchification). Un Transformer Encoder génère l'espace latent, et un Transformer Decoder reconstruit la séquence avant un réassemblage spatial.
+* **Résultats de l'étude :** Cette expérimentation a mis en évidence la difficulté d'entraîner des architectures basées sur l'attention depuis zéro (sans pré-entraînement massif). Le modèle a souffert d'instabilités d'entraînement (explosion du gradient) et les images générées présentaient de forts artefacts en grille (effet mosaïque).
+* **Conclusion scientifique :** Ce test confirme que l'absence de biais inductif local dans les Transformers nécessite des volumes de données et des temps de calcul largement supérieurs à ceux disponibles pour ce projet, justifiant notre choix de conserver les réseaux convolutifs et de passer au cGAN pour améliorer la netteté.
