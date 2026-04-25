@@ -610,6 +610,10 @@ G_losses_5, D_losses_5 = train_cgan(gen_5, disc_5, dataloader, device, num_epoch
     \label{fig:loss_CGAN_5}
 \end{figure}
 
+Il faudrait utiliser une échelle log pour bien visualiser les courbes mais la différence d'échelle entre le générateur et le discriminateur est telle que l'on ne verrait rien.
+
+De plus, on représente en abscisses le nombre de batch et pas époques pour plus de précision et lisibilité (mais on a en gros une époque tous les 1500 batch car \code{batch\_size = 128}).
+
 On remarque que la loss commence à se stabiliser vers la fin de l'entraînement ce qui est un bon signe.
 
 \begin{figure}[H]
@@ -732,7 +736,7 @@ G_losses_30, D_losses_30 = train_cgan(gen_30, disc_30, dataloader, device, num_e
     \label{fig:loss_CGAN_30}
 \end{figure}
 
-On remarque que passé un certain nombre d'époques, le modèle commence à diverger, on a un saut dans la loss. C'est le signe d'un sur-apprentissage ou d'un \textit{Gradient Exploding}.
+On remarque que passé un certain nombre d'époques, le modèle commence à diverger, on a un saut dans la loss. C'est le signe d'un sur-apprentissage ou d'un \textit{Gradient Vanishing}. En effet, la courbe du discriminateur converge très vite et se stabilise alors que celle du générateur explose car le modèle n'apprend plus (le gradient tend vers 0).
 
 \begin{figure}[H]
     \centering
@@ -783,6 +787,8 @@ G_losses_15, D_losses_15 = train_cgan(gen_15, disc_15, dataloader, device, num_e
 
 Contrairement à l'entraînement sur 30 époque, ici la loss ne diverge pas (\ref{fig:loss_CGAN_30}).
 
+Cependant, on remarque que le discriminateur converge plus vite que le générateur ce qui expliquait le phénomène sur 30 époques, en effet, le discriminteur est trop fort par rapport au générateur donc le générateur n'apprend plus car son gradient tend vers 0. Par ailleurs, la courbe d'entraînement du générateur est souvent le signe d'un learning rate trop grand ce qui entraîne cette instabilité, mais j'ai essayé de le diminuer rien n'y fait.
+
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\textwidth]{test1_CGAN_15.png}
@@ -820,18 +826,14 @@ Il pourrait être intéressant de faire de l'optimisation d'hyperparamètres ave
 
 De plus, en remplaçant le bruit d'entrée du générateur une fois entraîné par un visage déterminé, on pourrait essayer de faire générer au modèle des images avec les attributs que l'on souhaite, par exemple prendre son propre visage et y ajouter des lunettes.
 
+\medskip
+
+On pourrait aussi explorer du coté des \textbf{StyleGAN} qui utilise un genre de MLP en entrée du générateur pour structurer et contrôler le bruit latent du vecteur d'entrée $z$. C'est un également un modèle un peut à l'image des \textbf{Progressive Growing GAN} qui s'entraîne en augmentant la dimension des images d'entrée ($4x4$ puis $8x8$, etc.) et la profondeur du Générateur/Discriminateur pour conserver en stabilité tout au long de l'entraînement.
+
 \newpage
 \section{Le modèle CVAE}
 
-Nous avons décidé d'utiliser un CVAE (Conditional Variational Autoencoder). Il s'agit d'une extension du VAE classique intégrant des conditions externes — dans notre cas, les vecteurs d'attributs faciaux (labels) — à la fois à l'entrée de l'encodeur et du décodeur. Cette architecture permet au modèle d'apprendre la corrélation explicite entre l'espace latent et des caractéristiques visuelles spécifiques, offrant ainsi un contrôle sur la génération (par exemple, l'ajout de lunettes).
-
-Cependant, bien que stables à l'entraînement, les CVAE présentent des limites structurelles et mathématiques fondamentales pour la génération d'images haute résolution :
-\begin{itemize}
-    \item Le flou inhérent à la fonction de perte (Blurriness) : L'entraînement d'un VAE repose traditionnellement sur la minimisation de l'erreur de reconstruction pixel par pixel (souvent l'erreur quadratique moyenne, ou norme $L_2$). Face à l'incertitude spatiale (par exemple, le placement exact des contours d'une monture de lunettes ou la texture détaillée des cheveux), le modèle opte mathématiquement pour la moyenne des valeurs possibles pour minimiser son erreur. Ce nivellement se traduit visuellement par des images floues et un manque de netteté dans les hautes fréquences.
-    \item Le compromis de la divergence KL : La fonction de perte inclut une pénalité (la divergence de Kullback-Leibler) qui force l'espace latent à suivre une distribution normale standard $\mathcal{N}(0, 1)$. Si cette contrainte est trop forte, le modèle risque de trop lisser les données et d'ignorer la condition fournie (un phénomène appelé posterior collapse).
-    \item L'enchevêtrement des caractéristiques (Entanglement) : Malgré l'ajout de la condition, le CVAE peine parfois à isoler parfaitement un attribut. Dans un visage, des caractéristiques comme « porter des lunettes », « âge » et « forme des yeux » sont fortement corrélées. Modifier la condition pour ajouter des lunettes entraîne souvent des modifications indésirables sur le reste du visage, car l'espace latent n'est pas parfaitement démêlé.
-\end{itemize}
-C'est pour pallier ces limites, particulièrement le manque de netteté, que nous avons choisi d'utiliser un CVAE à 48 176 771 paramètres et un espace latent de dimension 512, entrainé sur 100 époques, ainsi qu'un peu de Data Augmentation (flip horizontale).
+Nous avons décidé d'utiliser un CVAE (Conditional Variational Autoencoder). Il s'agit d'une extension du VAE classique intégrant des conditions externes — dans notre cas, les vecteurs d'attributs faciaux (labels) — à la fois à l'entrée de l'encodeur et du décodeur. Cette architecture permet au modèle d'apprendre la corrélation explicite entre l'espace latent et des caractéristiques visuelles spécifiques, offrant ainsi un contrôle sur la génération (par exemple, l'ajout de lunettes).Cependant, bien que stables à l'entraînement, les CVAE présentent des limites structurelles et mathématiques fondamentales pour la génération d'images haute résolution :\begin{itemize}\item \textbf{Le flou inhérent à la fonction de perte (Blurriness) :} L'entraînement d'un VAE repose traditionnellement sur la minimisation de l'erreur de reconstruction pixel par pixel (souvent l'erreur quadratique moyenne, ou norme $L_2$). Face à l'incertitude spatiale (par exemple, le placement exact des contours d'une monture de lunettes ou la texture détaillée des cheveux), le modèle opte mathématiquement pour la moyenne des valeurs possibles pour minimiser son erreur. Ce nivellement se traduit visuellement par des images floues et un manque de netteté dans les hautes fréquences.\item \textbf{Le compromis de la divergence KL :} La fonction de perte inclut une pénalité (la divergence de Kullback-Leibler) qui force l'espace latent à suivre une distribution normale standard $\mathcal{N}(0, 1)$. Si cette contrainte est trop forte, le modèle risque de trop lisser les données et d'ignorer la condition fournie (un phénomène appelé posterior collapse).\item \textbf{L'enchevêtrement des caractéristiques (Entanglement) :} Malgré l'ajout de la condition, le CVAE peine parfois à isoler parfaitement un attribut. Dans un visage, des caractéristiques comme « porter des lunettes », « âge » et « forme des yeux » sont fortement corrélées. Modifier la condition pour ajouter des lunettes entraîne souvent des modifications indésirables sur le reste du visage, car l'espace latent n'est pas parfaitement démêlé.\end{itemize}C'est pour pallier ces limites, et particulièrement pour forcer le modèle à retenir davantage de détails haute fréquence, que nous avons conçu une architecture profonde. Nous avons utilisé un CVAE totalisant $48\,176\,771$ paramètres, doté d'un espace latent de dimension 512, et entraîné sur 100 époques. Pour prévenir le surapprentissage (overfitting) tout en préservant l'alignement strict du jeu de données CelebA, nous avons appliqué une augmentation de données restreinte au retournement horizontal (random horizontal flip). Ce modèle constitue le meilleur compromis observé entre temps de calcul et qualité de reconstruction visuelle, après plusieurs itérations sur des architectures plus légères.
 \medskip
 \begin{lstlisting}[language=Python, caption={Code CVAE}]
 import torch
@@ -935,13 +937,13 @@ def train(dataloader, model, optimizer, device, beta=1.0):
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\textwidth]{train_cvae.png}
-    \caption{evolution de la loss du cvae}
+    \caption{evolution de la loss de la validation du cvae}
 \end{figure}
 
 \subsection{Résultats CVAE}
-Pour vérifier les résultats du CVAE on a fait trois tests
-
+Pour évaluer les capacités de notre modèle, nous avons procédé à trois tests distincts ciblant la reconstruction, l'édition d'attributs et la génération.
 \subsubsection{Reconstruction images dataset test}
+Ce premier test évalue la capacité de l'encodeur à compresser l'information et celle du décodeur à la restituer fidèlement, en fournissant au modèle l'image originale ainsi que son vecteur de labels exact.
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\textwidth]{Reconstitution_test.png}
@@ -949,8 +951,10 @@ Pour vérifier les résultats du CVAE on a fait trois tests
     \label{fig:Reconstitution_test}
 \end{figure}
 
-\subsubsection{ajout features images dataset train}
+Les résultats de la Figure \ref{fig:Reconstitution_test} démontrent une reconstruction performante. L'identité globale du sujet est préservée, les attributs majeurs (chapeaux, type de chevelure, morphologie) sont respectés, et les arrière-plans sont fidèlement restitués. Le modèle a donc appris une représentation latente riche, bien que la texture globale souffre d'un léger flou caractéristique évoqué précédemment.
 
+\subsubsection{ajout features images dataset train}
+L'un des avantages du CVAE réside dans sa capacité théorique à éditer une image. Nous avons encodé une image de l'ensemble d'entraînement pour obtenir son vecteur latent, puis nous l'avons décodée en modifiant artificiellement un seul attribut cible dans le vecteur de condition.
 \begin{figure}[H]
     \centering
     \begin{minipage}{0.32\textwidth}
@@ -972,25 +976,78 @@ Pour vérifier les résultats du CVAE on a fait trois tests
     \caption{Comparaison des modifications d'attributs sur une même image source.}
 \end{figure}
 
+Les résultats mettent en évidence le phénomène d'enchevêtrement (entanglement). L'ajout de lunettes est géré de manière satisfaisante, bien que les contours manquent de netteté. En revanche, le modèle échoue à isoler correctement le changement de couleur de cheveux vers le noir, ou l'ajout d'une moustache. Peut être que le réseau associe fortement ces attributs au genre masculin dans sa représentation globale, et refuse d'appliquer des modifications locales fortes contredisant la structure faciale encodée.
+
+
 \subsubsection{Génération aléatoire avec feature}
+Dans ce dernier test, nous évaluons la génération ex nihilo. Nous échantillonnons des vecteurs de bruit purement aléatoires depuis une distribution normale $\mathcal{N}(0, 1)$ pour l'espace latent $z$, et nous les passons au décodeur avec un vecteur de condition $c$ contenant uniquement des zéros, à l'exception d'un unique « 1 » pour l'attribut désiré.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\textwidth]{gen_cvae_lunettes.png}
     \caption{Générations aléatoires avec lunettes}
-    \label{fig:génération_lunettes}
+    \label{fig:generation_lunettes}
 \end{figure}
-Des visages apparraissent au centre, le CVAE a appris la forme des viasges et leurs emplacements. Des lunettes de soleils apparaissent bien, des lunettes de vues apparaissent un peu et aussi des fois des formes sombres au niveau des yeux ou des contours de lunettes apparaissent legerement
+
+Comme observé sur la Figure \ref{fig:generation_lunettes}, le CVAE a intégré la structure d'un visage aligné (position des yeux, nez, bouche au centre de l'image), le fond par contre est complètement chaotique, dû à des calculs de "moyenne" des vecteurs continus. La condition est globalement respectée : des lunettes de soleil opaques apparaissent nettement, tandis que les lunettes de vue génèrent des structures plus sombres ou floues autour des yeux, traduisant l'incertitude du réseau face à la finesse de la monture.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\textwidth]{gen_CVAE_bals.png}
     \caption{Générations aléatoires chauve}
-    \label{fig:génération_bald}
+    \label{fig:generation_bald}
 \end{figure}
 
-On génére des vecteurs aléatoires pour $\mu$ et $\lambda$, ainsi qu'un vecteur de 0 avec un 1 pour les features que l'on veut
+Le conditionnement sur l'attribut « Chauve » (Figure \ref{fig:generation_bald}) s'avère plus complexe à interpréter pour le modèle. Les résultats sont mitigés : la génération produit fréquemment un compromis structurel, se traduisant par des sujets partiellement chauves, des lignes de cheveux fuyantes, ou des crânes lissés mais entourés d'ombres ressemblant à des cheveux. Ce lissage est un symptôme classique de la perte MSE cherchant à moyenner les zones à forte variance texturale.
 
+
+\newpage\section{Modèle exploratoire : CVAE-Transformer (ViT-CVAE)}
+
+Dans une démarche d'exploration de l'état de l'art, nous avons cherché à intégrer l'architecture Transformer, actuellement dominante dans les tâches de génération et de transformation d'images. Sachant que l'entraînement d'un Transformer génératif pur (de type autoregressif ou diffusion) requiert des ressources de calcul hors de portée de notre matériel, nous avons opté pour une architecture hybride : un CVAE dont les réseaux convolutifs ont été remplacés par des couches d'attention (Vision Transformer). Le mécanisme d'encodage divise l'image en une séquence de patchs ($8 \times 8$ pixels), traités par un Transformer Encoder pour générer l'espace latent. Le décodeur utilise un Transformer Decoder pour reformer les patchs avant de les réassembler spatialement.
+
+\medskip
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{transf.png}
+    \caption{Architecture transformer}
+    \label{fig:transformer}
+\end{figure}
+
+L'entraînement de ce modèle s'est avéré particulièrement complexe et laborieux.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{loss_trans.png}
+    \caption{Évolution de la fonction de perte du ViT-CVAE}
+    \label{fig:loss_transf}
+\end{figure}
+
+\subsection{Résultats visuels et limites}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.5\textwidth]{gen_trans_eyeglass.png}
+    \caption{Génération aléatoire attribut « Lunettes »}
+    \label{fig:exemple_transf_gen}
+\end{figure}
+
+Les résultats en génération sont visuellement inexploitables. L'image souffre d'un violent effet de mosaïque : le modèle peine à assurer une continuité spatiale entre les patchs de $8 \times 8$. La séparation entre l'arrière-plan et le sujet est inexistante, et les lunettes ne sont pas généré.
+
+\begin{figure}[H]\centering\includegraphics[width=1\textwidth]{femme_lunette_trans.png}\caption{ajout de lunettes sur une image de train}\end{figure}
+
+Lors de la tâche de transformation, le modèle parvient à reconstituer la colorimétrie globale et la géométrie de base du visage source. Toutefois, le réseau échoue complètement à appliquer la modification demandée (l'ajout de lunettes).
+
+Conclusion sur l'approche Transformer : cet échec relatif s'explique par deux facteurs fondamentaux :
+
+\begin{itemize}
+
+\item L'absence de biais inductif  : Contrairement aux couches convolutives qui comprennent nativement que des pixels voisins forment des structures continues, le Transformer traite chaque patch de manière indépendante. Il doit apprendre la topologie de l'image de zéro, ce qui nécessite des ensembles de données gigantesques.
+
+\item Le sous-entraînement face à la complexité matérielle : Pour qu'un ViT génère des résultats cohérents sans pré-entraînement, il requiert des milliers d'époques d'apprentissage (avec une protection contre l'explosion du gradient). Nos contraintes matérielles et temporelles rendent cette convergence impossible.
+
+\end{itemize}
+
+Il n'est pas utile de rajouter ce modèle à notre interface web car c'est un échec pour la génération d'images.
 
 \newpage
 \section{Interface pour notre application (Inférence)}
@@ -1018,7 +1075,25 @@ Ensuite, on peut choisir le nombre de visages à générer et les générer, le 
 
 Cela donne un exemple d'interface facilement utilisable pour notre projet.
 
+De même pour le CVAE, 
+
+\medskip
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{gen_cvae_stream.png}
+    \caption{Interface streamlit CVAE, génération de 10 visages}
+    \label{fig:streamlit_CVAE}
+\end{figure}
+
 \section{Conclusion}
+
+Ce projet de génération d'images conditionnelles sur le jeu de données CelebA a permis de mettre en lumière les dynamiques contrastées entre les différentes architectures de l'état de l'art. À travers l'implémentation du CGAN, nous avons pu observer la puissance des modèles antagonistes pour produire des visages d'une grande netteté et d'une diversité visuelle remarquable. L'étude des cycles d'entraînement a révélé qu'un équilibre fragile doit être maintenu : si un nombre d'époques intermédiaire permet d'obtenir des résultats probants et une bonne généralisation confirmée par le score LPIPS, un entraînement trop long conduit inévitablement à une divergence du gradient et à une perte de diversité.
+
+L'approche par le CVAE a complété cette étude en offrant une perspective différente, axée sur la reconstruction et l'organisation de l'espace latent. Bien que ce modèle soit plus stable mathématiquement, il a illustré les limites classiques des fonctions de perte par erreur quadratique moyenne, qui tendent à lisser les détails et à produire un flou caractéristique. Ce modèle a toutefois démontré une capacité intéressante pour l'édition d'attributs, malgré les difficultés liées à l'enchevêtrement des caractéristiques faciales qui rendent parfois complexe la modification d'un seul trait sans altérer l'identité globale du sujet.
+
+L'exploration du modèle hybride ViT-CVAE a constitué une étape riche en enseignements techniques, soulignant que l'absence de biais inductifs spatiaux dans les Transformers nécessite des ressources de calcul et des volumes de données bien plus massifs pour rivaliser avec les réseaux convolutifs. L'effet de mosaïque obtenu témoigne de la difficulté pour ces modèles d'apprendre la continuité spatiale d'une image de manière autonome dans un cadre de recherche limité. Cette expérience confirme que pour des résolutions modestes et des jeux de données spécifiques, l'architecture DCGAN reste particulièrement efficiente.
+
+Enfin, le développement de l'interface Streamlit concrétise les motivations initiales du projet en proposant une application d'inférence fonctionnelle et accessible. Cette plateforme permet de visualiser concrètement comment les conditions imposées aux modèles se traduisent par des caractéristiques morphologiques précises. Pour l'avenir, l'utilisation de modèles de diffusion ou l'optimisation des hyperparamètres sur des attributs plus rares permettrait d'affiner encore davantage la précision du contrôle, ouvrant la voie à des applications commerciales plus robustes dans le domaine de la mode ou de l'optique.
 
 % --------------------
 \newpage
