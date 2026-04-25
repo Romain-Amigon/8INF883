@@ -40,22 +40,63 @@ Une architecture antagoniste (inspirée de cGAN/StarGAN) est implémentée pour 
 
 et Transformer si il y a le temps
 
-4. Évaluation des Performances
-La qualité des images générées et la robustesse des modèles sont évaluées à l'aide de métriques perceptives et structurelles :
+## Structure du projet
 
-SSIM (Structural Similarity Index Measure) : Mesure la préservation de la structure globale du visage original après l'application du filtre.
+```plaintext
+C:.
+│   .gitignore
+│   Rapport_de_Projet_8INF883.pdf
+│   README.md
+│   requirements.txt
+│
+├───.ipynb_checkpoints
+│       
+│
+├───app
+│       app.py
+│
+├───CVAE
+│   │   CVAE_comp_512.ipynb ==> Pour entrainer le CVAE
+│   │   femme.png
+│   │   moi.jpg
+│   │   test.ipynb          ==> Pour tester une fois entrainé
+│   │
+│   ├───models
+│   │    
+│   │
+│   └───old_train
+│           CVAE_comp.ipynb
+│           VAE_simple.ipynb
+│
+├───GAN
+│   │   CGAN_diagram.png
+│   │   GAN.ipynb
+│   │   requirements.txt
+│   │
+│   └───saved_models
+│      ...
+│
+├───rapport
+|   ...
+│
+└───transformer
+    │ 
+    │   femme.png
+    │   test.ipynb    ==> Pour tester une fois entrainé
+    │   transf.ipynb  ==> Pour entrainer le ViTCVAE
+    │
+    └───.ipynb_checkpoints
+            
+``
 
-LPIPS (Learned Perceptual Image Patch Similarity) : Évalue la qualité visuelle et le réalisme des résultats en se basant sur la perception humaine.
-
-
-####  Auto-encodeur Variationnel Conditionnel (Deep CVAE)
+## Auto-encodeur Variationnel Conditionnel (Deep CVAE)
 Notre modèle de base est un CVAE profond basé sur des réseaux de neurones convolutifs (CNN), conçu pour encoder les images dans une distribution statistique tout en forçant la séparation des attributs.
 
 * **Architecture :** Le réseau est composé de 5 couches de convolution pour l'encodeur et 5 couches de convolution transposée pour le décodeur, totalisant environ 48 millions de paramètres. L'espace latent a été fixé à une dimension de 512 pour maximiser la rétention des détails faciaux en résolution 128x128.
 * **Conditionnement :** Les 40 labels binaires de CelebA sont concaténés à l'image en entrée de l'encodeur, ainsi qu'au vecteur latent échantillonné en entrée du décodeur.
 * **Observations et Limites :** Le modèle démontre une excellente capacité à reconstruire la structure globale du visage et permet l'édition d'attributs spécifiques (ex: ajout de lunettes). Cependant, il illustre parfaitement les limites théoriques des VAE : une tendance au lissage (flou) due à la fonction de perte basée sur l'erreur de reconstruction, et une difficulté à isoler parfaitement certains attributs fortement corrélés (enchevêtrement latent).
 
-####  Exploration : Vision Transformer CVAE (ViT-CVAE)
+##  Exploration : Vision Transformer CVAE (ViT-CVAE)
 Dans une démarche d'exploration de l'état de l'art, nous avons implémenté et testé une variante remplaçant les convolutions par un mécanisme d'Attention.
 
 * **Approche :** L'image est découpée en séquences de patchs de 8x8 pixels (Patchification). Un Transformer Encoder génère l'espace latent, et un Transformer Decoder reconstruit la séquence avant un réassemblage spatial.
