@@ -143,7 +143,7 @@ def load_cvae_model():
     device = torch.device("mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu")
     model = CVAE().to(device)
     try:
-        model.load_state_dict(torch.load("../CVAE/models/CNN_features_128_model_20260403-080330.pth", map_location=device))
+        model.load_state_dict(torch.load("./CVAE/models/CNN_features_128_model_20260403-080330.pth", map_location=device))
         model.eval()
         return model, device
     except Exception as e:
